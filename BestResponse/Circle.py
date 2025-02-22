@@ -168,81 +168,81 @@ class CircularModel(SpatialCompetitionModel):
                   ['0', 'π/3', '2π/3', 'π', '4π/3', '5π/3', '2π'])
         plt.show()
 
-        def plot_profit_curve(self, 
-                            firm_index: int,
-                            vary_price: bool = True,
-                            num_points: int = 100,
-                            position_range: Optional[Tuple[float, float]] = None,
-                            price_range: Optional[Tuple[float, float]] = None):
-            """
-            Plot profit curve when varying either price or position while keeping the other fixed.
-            For positions, works in the circular domain [0, 2π].
-            
-            Args:
-                firm_index: Index of the firm to analyze
-                vary_price: If True, varies price and keeps position fixed. If False, varies position
-                num_points: Number of points to evaluate
-                position_range: Optional tuple of (min_pos, max_pos). If None, uses [0, 2π]
-                price_range: Optional tuple of (min_price, max_price). If None, uses [cost, 3*cost]
-            """
-            # Set up ranges
-            if position_range is None:
-                position_range = (0, 2 * np.pi)  # Full circle
-            if price_range is None:
-                price_range = (self.cost, 2 * self.cost)
-            
-            # Store original values
-            current_profit = float(self.profit(self.firms[firm_index]))
-            original_position = self.firms[firm_index].position.copy()
-            original_price = self.firms[firm_index].price
-            
-            # Create array of values to test
+    def plot_profit_curve(self, 
+                        firm_index: int,
+                        vary_price: bool = True,
+                        num_points: int = 100,
+                        position_range: Optional[Tuple[float, float]] = None,
+                        price_range: Optional[Tuple[float, float]] = None):
+        """
+        Plot profit curve when varying either price or position while keeping the other fixed.
+        For positions, works in the circular domain [0, 2π].
+        
+        Args:
+            firm_index: Index of the firm to analyze
+            vary_price: If True, varies price and keeps position fixed. If False, varies position
+            num_points: Number of points to evaluate
+            position_range: Optional tuple of (min_pos, max_pos). If None, uses [0, 2π]
+            price_range: Optional tuple of (min_price, max_price). If None, uses [cost, 3*cost]
+        """
+        # Set up ranges
+        if position_range is None:
+            position_range = (0, 2 * np.pi)  # Full circle
+        if price_range is None:
+            price_range = (self.cost, 2 * self.cost)
+        
+        # Store original values
+        current_profit = float(self.profit(self.firms[firm_index]))
+        original_position = self.firms[firm_index].position.copy()
+        original_price = self.firms[firm_index].price
+        
+        # Create array of values to test
+        if vary_price:
+            x_values = np.linspace(price_range[0], price_range[1], num_points)
+        else:
+            x_values = np.linspace(position_range[0], position_range[1], num_points)
+        
+        # Calculate profits
+        profits = np.zeros(num_points)
+        
+        for i, x in enumerate(x_values):
             if vary_price:
-                x_values = np.linspace(price_range[0], price_range[1], num_points)
+                self.firms[firm_index].price = float(x)
             else:
-                x_values = np.linspace(position_range[0], position_range[1], num_points)
+                self.firms[firm_index].position = np.array([float(x)])
+            profits[i] = self.profit(self.firms[firm_index])
+        
+        # Create the plot
+        plt.figure(figsize=(12, 6))
+        
+        # Plot profit curve
+        plt.plot(x_values, profits, 'b-', label='Profit')
+        
+        # Plot current position/price
+        if vary_price:
+            current_x = original_price
+        else:
+            current_x = original_position
             
-            # Calculate profits
-            profits = np.zeros(num_points)
-            
-            for i, x in enumerate(x_values):
-                if vary_price:
-                    self.firms[firm_index].price = float(x)
-                else:
-                    self.firms[firm_index].position = np.array([float(x)])
-                profits[i] = float(self.profit(self.firms[firm_index]))
-            
-            # Create the plot
-            plt.figure(figsize=(12, 6))
-            
-            # Plot profit curve
-            plt.plot(x_values, profits, 'b-', label='Profit')
-            
-            # Plot current position/price
-            if vary_price:
-                current_x = float(original_price)
-            else:
-                current_x = float(original_position[0])
-                
-            plt.plot(current_x, current_profit, 'ko', markersize=10,
-                    label=f'Current Position (profit: {current_profit:.3f})')
-            
-            # Add labels and title
-            plt.xlabel('Price' if vary_price else 'Position (radians)')
-            plt.ylabel('Profit')
-            plt.title(f'Profit vs {"Price" if vary_price else "Position"} for Firm {firm_index + 1}')
-            plt.grid(True)
-            
-            # Special x-axis formatting for positions
-            if not vary_price:
-                # Set x-ticks to show π fractions
-                plt.xticks(np.linspace(0, 2 * np.pi, 7),
-                        ['0', 'π/3', '2π/3', 'π', '4π/3', '5π/3', '2π'])
-            
-            plt.legend()
-            
-            # Restore original values
-            self.firms[firm_index].position = original_position
-            self.firms[firm_index].price = original_price
-            
-            plt.show()
+        plt.plot(current_x, current_profit, 'ko', markersize=10,
+                label=f'Current Position (profit: {current_profit:.3f})')
+        
+        # Add labels and title
+        plt.xlabel('Price' if vary_price else 'Position (radians)')
+        plt.ylabel('Profit')
+        plt.title(f'Profit vs {"Price" if vary_price else "Position"} for Firm {firm_index + 1}')
+        plt.grid(True)
+        
+        # Special x-axis formatting for positions
+        if not vary_price:
+            # Set x-ticks to show π fractions
+            plt.xticks(np.linspace(0, 2 * np.pi, 7),
+                    ['0', 'π/3', '2π/3', 'π', '4π/3', '5π/3', '2π'])
+        
+        plt.legend()
+        
+        # Restore original values
+        self.firms[firm_index].position = original_position
+        self.firms[firm_index].price = original_price
+        
+        plt.show()
