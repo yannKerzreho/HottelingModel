@@ -210,7 +210,7 @@ class CircularModel(SpatialCompetitionModel):
                 self.firms[firm_index].price = float(x)
             else:
                 self.firms[firm_index].position = np.array([float(x)])
-            profits[i] = self.profit(self.firms[firm_index])
+            profits[i] = float(self.profit(self.firms[firm_index]))
         
         # Create the plot
         plt.figure(figsize=(12, 6))
@@ -230,7 +230,7 @@ class CircularModel(SpatialCompetitionModel):
         # Add labels and title
         plt.xlabel('Price' if vary_price else 'Position (radians)')
         plt.ylabel('Profit')
-        plt.title(f'Profit vs {"Price" if vary_price else "Position"} for Firm {firm_index + 1}')
+        plt.title(f'Profit vs {"Price" if vary_price else "Position"} for Firm {firm_index}')
         plt.grid(True)
         
         # Special x-axis formatting for positions

@@ -83,7 +83,7 @@ class SpatialCompetitionModel(ABC):
         exp_terms = np.exp(-self.beta * distances_prices)
         firm_index = self.firms.index(firm)
         
-        return exp_terms[firm_index] / np.sum(exp_terms)
+        return exp_terms[firm_index] / np.sum(exp_terms, axis = 0)
     
     def profit(self, 
               firm: Firm) -> float:
@@ -98,7 +98,7 @@ class SpatialCompetitionModel(ABC):
         )
         
         # Scale by integration weight and PPP intensity
-        total_market_share *= weight * self.pi * self.manifold_volume
+        total_market_share *= weight * self.pi / self.manifold_volume
         
         return (firm.price - self.cost) * total_market_share
     
