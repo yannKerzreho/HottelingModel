@@ -1,0 +1,169 @@
+import numpy as np
+import numpy.typing as npt
+import matplotlib.pyplot as plt
+from typing import List, Tuple, Optional
+from Class import SpatialCompetitionModel, Firm
+from scipy.optimize import minimize
+
+class CircularModel(SpatialCompetitionModel):
+    def __init__(self,
+                 N: int,
+                 beta: float,
+                 cost: float,
+                 pi: float,
+                 firms: Optional[List[Firm]] = None):
+        """
+        Initialize Hotelling model on unit circle [0, 2π].
+        
+        Args:
+            N: Number of firms
+            beta: Smoothing parameter for softmin
+            cost: Cost parameter for all firms
+            pi: Intensity of the Poisson Point Process
+            firms: Optional list of firms (if None, will be initialized)
+        """
+        super().__init__(
+            N=N,
+            beta=beta,
+            cost=cost,
+            manifold_volume=2 * np.pi,  # Circle circumference is 2π
+            pi=pi,
+            firms=firms
+        )
+
+    def distance_manifold(self,
+                         x: npt.NDArray[np.float64],
+                         y: npt.NDArray[np.float64]) -> float:
+        """
+        Compute distance on unit circle.
+        Uses minimum of direct distance and distance going the other way around the circle.
+        """
+        direct_distance = np.abs(x - y)
+        return np.minimum(direct_distance, 2 * np.pi - direct_distance)
+
+    def generate_integration_points(self) -> Tuple[npt.NDArray[np.float64], float]:
+        """
+        Generate 1000 equally spaced points on [0, 2π] for numerical integration.
+        
+        Returns:
+            Tuple of (points array, weight per point)
+        """
+        num_points = 1000
+        points = np.linspace(0, 2 * np.pi, num_points)
+        # Reshape points to be compatible with ndarray operations
+        points = points.reshape(-1, 1)
+        # Weight is circle circumference divided by number of points
+        weight = (2 * np.pi) / num_points
+        
+        return points, weight
+
+    def get_optimization_bounds(self) -> List[Tuple[float, float]]:
+        """
+        Get bounds for optimization.
+        Position must be in [0, 2π], price must be above cost.
+        """
+        return [(0, 2 * np.pi),    # position bound
+                (self.cost, None)]  # price bound
+
+    def get_initial_firms(self) -> List[Firm]:
+        """
+        Get initial positions and prices for firms.
+        Positions are equally spaced on [0, 2π], prices start at 2*cost.
+        """
+        firms = []
+        for i in range(self.num_firms):
+            # Spread firms equally on circle
+            position = np.array([2 * np.pi * (i + 1) / self.num_firms])
+            # Initial price is twice the cost
+            price = 2 * self.cost
+            firms.append(Firm(position=position, price=price))
+        
+        return firms
+    
+    def best_response(self,
+                    firm_index: int,
+                    initial_guess: Tuple[npt.NDArray[np.float64], float] | None = None
+                    ) -> Tuple[npt.NDArray[np.float64], float]:
+        """
+        Compute the best response for a given firm given other firms' strategies.
+        Tries multiple initial points and returns the best solution found.
+        """
+        old_position = self.firms[firm_index].position
+        old_price = self.firms[firm_index].price
+        
+        def negative_profit(x):
+            # Temporarily update firm's strategy
+            self.firms[firm_index].position = x[:-1]
+            self.firms[firm_index].price = x[-1]
+            profit = self.profit(self.firms[firm_index])
+            # Restore original strategy
+            self.firms[firm_index].position = old_position
+            self.firms[firm_index].price = old_price
+            return -profit
+
+        bounds = self.get_optimization_bounds()
+        
+        # List to store all optimization results
+        all_results = []
+        
+        # Try different initial points around the circle
+        initial_points = [
+            # Current firm position and price
+            (self.firms[firm_index].position, self.firms[firm_index].price),
+            # Position at π with firm's price
+            (np.array([np.pi]), self.firms[firm_index].price),
+            # Position at 0 with firm's price
+            (np.array([0.0]), self.firms[firm_index].price)
+        ]
+        
+        # If initial_guess is provided, add it to the list
+        if initial_guess is not None:
+            initial_points.append(initial_guess)
+        
+        # Try optimization from each initial point
+        for pos, price in initial_points:
+            x0 = np.concatenate([pos, [price]])
+            result = minimize(negative_profit, x0, bounds=bounds)
+            all_results.append((result.fun, result.x))
+        
+        # Find the best result (minimum negative profit = maximum profit)
+        best_result = min(all_results, key=lambda x: x[0])
+        
+        # Return the position and price from the best result
+        return best_result[1][:-1], best_result[1][-1]
+    
+    def __repr__(self) -> str:
+        """String representation of CircularModel structure."""
+        header = f"CircularModel(beta={self.beta}, cost={self.cost}\n"
+        firms_str = "\nFirms:\n"
+        for i, firm in enumerate(self.firms):
+            # Convert position to radians for clearer representation
+            pos_rad = firm.position[0]
+            pos_deg = np.degrees(pos_rad)
+            firms_str += f"  {i+1}: position={pos_rad:.3f} rad ({pos_deg:.1f}°), price={firm.price:.3f}\n"
+        return header + firms_str + ")"
+
+    def visualize_market_shares(self, num_points: int = 1000):
+        """
+        Visualize market shares along the circle [0, 2π].
+        """        
+        x = np.linspace(0, 2 * np.pi, num_points).reshape(-1, 1)
+        shares = np.zeros((len(self.firms), num_points))
+        
+        for i, firm in enumerate(self.firms):
+            shares[i, :] = [self.market_share(firm, x_i) for x_i in x]
+        
+        plt.figure(figsize=(12, 6))
+        for i in range(len(self.firms)):
+            plt.plot(x, shares[i, :], label=f'Firm {i+1}')
+            plt.axvline(x=self.firms[i].position, color=f'C{i}', 
+                       linestyle='--', alpha=0.5)
+        
+        plt.xlabel('Position (radians)')
+        plt.ylabel('Market Share')
+        plt.title('Market Shares and Firm Positions')
+        plt.legend()
+        plt.grid(True)
+        plt.xticks(np.linspace(0, 2 * np.pi, 7), 
+                  ['0', 'π/3', '2π/3', 'π', '4π/3', '5π/3', '2π'])
+        plt.show()
