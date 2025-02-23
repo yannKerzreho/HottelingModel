@@ -52,7 +52,7 @@ class CubeModel(SpatialCompetitionModel):
             Tuple of (points array, weight per point)
         """
         # Calculate points per dimension to maintain roughly similar total points
-        points_per_dim = int(np.power(10000, 1/self.dimension))
+        points_per_dim = int(np.power(1000, 1/self.dimension))
         
         # Generate grid points for each dimension
         grid_points = [np.linspace(0, 1, points_per_dim) for _ in range(self.dimension)]
