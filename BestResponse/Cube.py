@@ -92,56 +92,11 @@ class CubeModel(SpatialCompetitionModel):
         
         return firms
     
-    def best_response(self,
-                    firm_index: int,
-                    initial_guess: Tuple[npt.NDArray[np.float64], float] | None = None
-                    ) -> Tuple[npt.NDArray[np.float64], float]:
-        """
-        Compute the best response for a given firm given other firms' strategies.
-        Tries multiple initial points and returns the best solution found.
-        """
-        old_position = self.firms[firm_index].position
-        old_price = self.firms[firm_index].price
-        
-        def negative_profit(x):
-            # Temporarily update firm's strategy
-            self.firms[firm_index].position = x[:-1]
-            self.firms[firm_index].price = x[-1]
-            profit = self.profit(self.firms[firm_index])
-            # Restore original strategy
-            self.firms[firm_index].position = old_position
-            self.firms[firm_index].price = old_price
-            return -profit
-
-        bounds = self.get_optimization_bounds()
-        
-        # List to store all optimization results
-        all_results = []
-        
-        # Try different initial points
-        initial_points = [
-            # Current firm position and price (original)
+    def get_intial_points(self, firm_index) -> List[Tuple[npt.NDArray[np.float64], float]]:
+        return [
             (self.firms[firm_index].position, self.firms[firm_index].price),
-                        
-            # Corner points with firm's price
             (np.ones(self.dimension), self.firms[firm_index].price)
         ]
-        
-        # If initial_guess is provided, add it to the list
-        if initial_guess is not None:
-            initial_points.append(initial_guess)
-        
-        # Try optimization from each initial point
-        for pos, price in initial_points:
-            x0 = np.concatenate([pos, [price]])
-            result = minimize(negative_profit, x0, bounds=bounds)
-            all_results.append((result.fun, result.x))
-        
-        # Find the best result (minimum negative profit = maximum profit)
-        best_result = min(all_results, key=lambda x: x[0])
-        
-        # Return the position and price from the best result
-        return best_result[1][:-1], best_result[1][-1]
     
     def __repr__(self) -> str:
         """String representation of CubeModel structure."""

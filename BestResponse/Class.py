@@ -69,6 +69,16 @@ class SpatialCompetitionModel(ABC):
         Must be implemented by concrete subclasses.
         """
         pass
+
+    @abstractmethod
+    def get_intial_points(self, firm_index) -> List[Tuple[npt.NDArray[np.float64], float]]:
+        """
+        Abstract methode to generate the intial points of the optimisation probleme from best response.
+        Returns:
+            List of Tuple of (points, weight_per_point).
+        Must be implemented by concrete subclasses.
+        """
+        pass
     
     def market_share(self, 
                     firm: Firm,
@@ -104,17 +114,10 @@ class SpatialCompetitionModel(ABC):
     
     def best_response(self, 
                      firm_index: int,
-                     initial_guess: Tuple[npt.NDArray[np.float64], float] | None = None
                      ) -> Tuple[npt.NDArray[np.float64], float]:
         """
         Compute the best response for a given firm given other firms' strategies.
         """
-        if initial_guess is None:
-            # Use current position and price as initial guess
-            position_guess = self.firms[firm_index].position
-            price_guess = self.firms[firm_index].price
-            initial_guess = (position_guess, price_guess)
-
         old_position = self.firms[firm_index].position
         old_price = self.firms[firm_index].price
             
@@ -131,11 +134,25 @@ class SpatialCompetitionModel(ABC):
             
             return -profit
         
-        x0 = np.concatenate([initial_guess[0], [initial_guess[1]]])
         bounds = self.get_optimization_bounds()
         
-        result = minimize(negative_profit, x0, bounds=bounds)
-        return result.x[:-1], result.x[-1]
+        # List to store all optimization results
+        all_results = []
+        
+        # Try different initial points around the circle
+        initial_points =  self.get_intial_points(firm_index)
+        
+        # Try optimization from each initial point
+        for pos, price in initial_points:
+            x0 = np.concatenate([pos, [price]])
+            result = minimize(negative_profit, x0, bounds=bounds)
+            all_results.append((result.fun, result.x))
+        
+        # Find the best result (minimum negative profit = maximum profit)
+        best_result = min(all_results, key=lambda x: x[0])
+        
+        # Return the position and price from the best result
+        return best_result[1][:-1], best_result[1][-1]
 
     def best_response_price(self, 
                           firm_index: int,
