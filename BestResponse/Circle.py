@@ -80,6 +80,23 @@ class CircularModel(SpatialCompetitionModel):
         
         return firms
     
+    def get_unifeq_price(self, firm_index) -> float:
+
+        x, weight = self.generate_integration_points()
+
+        distances_prices = np.array([
+            self.distance_manifold(x, f.position) + f.price 
+            for f in self.firms
+        ])
+
+        exp_terms = np.exp(-self.beta * distances_prices)
+
+        sumexp = np.sum(exp_terms, axis = 0)
+        fi = exp_terms[0] / sumexp
+        onefi = (1-exp_terms[0]) / sumexp
+        
+        return np.sum(fi)/ (self.beta * sum(fi * onefi))
+
     def get_intial_points(self, firm_index) -> List[Tuple[npt.NDArray[np.float64], float]]:
         return [
             (self.firms[firm_index].position, self.firms[firm_index].price),
