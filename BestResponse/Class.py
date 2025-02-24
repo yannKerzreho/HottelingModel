@@ -250,6 +250,8 @@ class SpatialCompetitionModel(ABC):
                 self.firms[i].position = new_position
                 self.firms[i].price = new_price
             
+            print(f'Debug: model: \n {self}')
+
             # Check convergence
             if all(np.linalg.norm(f.position - old_pos) < tolerance and
                    abs(f.price - old_price) < tolerance

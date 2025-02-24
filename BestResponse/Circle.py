@@ -74,28 +74,55 @@ class CircularModel(SpatialCompetitionModel):
         for i in range(self.num_firms):
             # Spread firms equally on circle
             position = np.array([2 * np.pi * (i + 1) / self.num_firms])
-            # Initial price is twice the cost
-            price = 2 * self.cost
-            firms.append(Firm(position=position, price=price))
+            firms.append(Firm(position=position, price=2*self.cost))
         
         return firms
     
-    def get_unifeq_price(self, firm_index) -> float:
+    def get_unifeq_price(self, precision = 1e-4) -> float:
 
-        x, weight = self.generate_integration_points()
+        firms = []
+        price = 2*self.cost
+        for i in range(self.num_firms):
+            position = np.array([2 * np.pi * (i + 1) / self.num_firms])
+            firms.append(Firm(position=position, price=price))
 
-        distances_prices = np.array([
-            self.distance_manifold(x, f.position) + f.price 
-            for f in self.firms
-        ])
+        self.firms = firms
 
-        exp_terms = np.exp(-self.beta * distances_prices)
+        price = self.cost * 2
 
-        sumexp = np.sum(exp_terms, axis = 0)
-        fi = exp_terms[0] / sumexp
-        onefi = (1-exp_terms[0]) / sumexp
-        
-        return np.sum(fi)/ (self.beta * sum(fi * onefi))
+        for _ in range(1000):
+            old_price = price
+            price = self.best_response_price(0)
+            print(f'Debug: price={price} | old price={old_price} | abs={abs(old_price - price)}')
+            for i in range(self.num_firms):
+                self.firms[i].price = price
+            if abs(price - old_price) < precision:
+                return price
+
+        return price
+    
+    def get_concetraed_price(self, precision = 1e-4) -> float:
+
+        firms = []
+        price = 2*self.cost
+        for i in range(self.num_firms):
+            firms.append(Firm(position=np.array([0]), price=price))
+
+        self.firms = firms
+
+        price = self.cost * 2
+
+        for _ in range(1000):
+            old_price = price
+            price = self.best_response_price(0)
+            print(f'Debug: price={price} | old price={old_price} | abs={abs(old_price - price)}')
+            for i in range(self.num_firms):
+                self.firms[i].price = price
+            if abs(price - old_price) < precision:
+                return price
+
+        return price
+
 
     def get_intial_points(self, firm_index) -> List[Tuple[npt.NDArray[np.float64], float]]:
         return [
@@ -163,7 +190,7 @@ class CircularModel(SpatialCompetitionModel):
         if position_range is None:
             position_range = (0, 2 * np.pi)  # Full circle
         if price_range is None:
-            price_range = (self.cost, 2 * self.cost)
+            price_range = (self.cost, 5 * self.cost)
         
         # Store original values
         current_profit = float(self.profit(self.firms[firm_index]))
