@@ -100,6 +100,49 @@ class CircularModel(SpatialCompetitionModel):
                 return price
 
         return price
+
+    def get_secondOrderDrivative_Dmd_pos(self, firm_index) -> float:
+
+        x, w = self.generate_integration_points()
+
+        pos_i = self.firms[firm_index].position
+        pos_bari = (pos_i + np.pi) % (2 * np.pi)
+
+        # Compute fi
+        distances_prices = np.array([
+            self.distance_manifold(x, f.position) + f.price 
+            for f in self.firms
+        ])
+        exp_terms = np.exp(-self.beta * distances_prices)        
+        fi = exp_terms[firm_index] / np.sum(exp_terms, axis = 0)
+        fi = fi / self.manifold_volume
+
+        # Compute fi at theta_i
+        distances_prices_theta_i = np.array([
+            self.distance_manifold(pos_i, f.position) + f.price 
+            for f in self.firms
+        ])
+        exp_terms_theta_i = np.exp(-self.beta * distances_prices_theta_i)        
+        fi_theta_i = exp_terms_theta_i[firm_index] / np.sum(exp_terms_theta_i, axis = 0)
+        fi_theta_i = fi_theta_i / self.manifold_volume
+
+        # Compute fi at bar_theta_i
+        distances_prices_bartheta_i = np.array([
+            self.distance_manifold(pos_bari, f.position) + f.price 
+            for f in self.firms
+        ])
+        exp_terms_bartheta_i = np.exp(-self.beta * distances_prices_bartheta_i)        
+        fi_bartheta_i = exp_terms_bartheta_i[firm_index] / np.sum(exp_terms_bartheta_i, axis = 0)
+        fi_bartheta_i = fi_bartheta_i / self.manifold_volume
+
+        # Compute int +\beta^2
+        int1 = self.beta**2 * np.sum(fi * (1-2*fi)* (1-fi)* w)
+        # Compute -\beta fi (1-fi) at \theta i
+        int2 = - 2 * self.beta * fi_theta_i * (1-fi_theta_i)
+        # Compute \beta fi (1-fi) at \bar \theta i
+        int3 = 2 * self.beta * fi_bartheta_i * (1-fi_bartheta_i)
+
+        return int1 + int2 + int3
     
     def get_concetraed_price(self, precision = 1e-4) -> float:
 
@@ -122,7 +165,6 @@ class CircularModel(SpatialCompetitionModel):
                 return price
 
         return price
-
 
     def get_intial_points(self, firm_index) -> List[Tuple[npt.NDArray[np.float64], float]]:
         return [
