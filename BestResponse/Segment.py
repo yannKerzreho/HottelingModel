@@ -47,7 +47,7 @@ class LinearModel(SpatialCompetitionModel):
         Returns:
             Tuple of (points array, weight per point)
         """
-        num_points = 1000
+        num_points = 10000
         points = np.linspace(0, 1, num_points)
         # Reshape points to be compatible with ndarray operations
         points = points.reshape(-1, 1)
